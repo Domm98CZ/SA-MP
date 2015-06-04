@@ -16,9 +16,13 @@
 #define SAMP_API    "samp-api.domm98.cz/api/sa-mp.php"
 #define SAMP_API_IP "samp-api.domm98.cz/api/ip.php"
 #define SAMP_API_K  "samp-api.domm98.cz/api/get_key.php"
+#define SAMP_API_VU "samp-api.domm98.cz/api/version.php"
+#define SAMP_API_L  "samp_api.log"
 #define SAMP_API_C  "samp_api.cfg"
-// DEVELOPER MODE
-#define SAMP_API_DEVELOPER 1
+#define SAMP_API_V  "2.0"
+// SAMP-API CONFIG
+#define SAMP_API_LOG 		1
+#define SAMP_API_DEVELOPER 	1
 // SERVER VARIABLES
 new SERVER_IP[127];
 new SERVER_KEY[127];
@@ -35,12 +39,14 @@ new Player[MAX_PLAYERS][Player_Info];
 // FORWARDS
 forward PGetServerIP(index, response_code, data[]);
 forward PKontrolaKlice(index, response_code, data[]);
+forward PKontrolaVerze(index, response_code, data[]);
+forward GetScriptVersion();
 forward GetServerIP();
 forward WebServerStart();
 forward WebServerStop();
-forward Clear();
 forward BeOnline();
-forward KontrolaKlice();
+forward KeyControl();
+
 //Script Publics
 public GetServerIP()
 {
@@ -62,15 +68,6 @@ public WebServerStop()
     return 1;
 }
 
-public Clear()
-{
-	SAMP_API_QUERY("ip=%s&port=%d&key=%s&action=delete&user=nic&info=nic", SERVER_IP, GetServerVarAsInt("port"), SERVER_KEY);
-	#if defined SAMP_API_DEVELOPER
-	    SAMP_API_PRINT("Actions cleared.");
-	#endif
-	return 1;
-}
-
 public BeOnline()
 {
     SAMP_API_QUERY("ip=%s&port=%d&key=%s&action=server_status&user=SERVER&info=ON", SERVER_IP, GetServerVarAsInt("port"),SERVER_KEY);
@@ -80,12 +77,57 @@ public BeOnline()
     return 1;
 }
 
-public KontrolaKlice()
+public KeyControl()
 {
     SAMP_API_QUERY_EX(SAMP_API_K, "PKontrolaKlice", "ip=%s&port=%d&key=%s", SERVER_IP, GetServerVarAsInt("port"), SERVER_KEY);
     #if defined SAMP_API_DEVELOPER
 	    SAMP_API_PRINT("Key control started.");
 	#endif
+    return 1;
+}
+
+public GetScriptVersion()
+{
+    SAMP_API_QUERY_EX(SAMP_API_VU, "PKontrolaVerze", "");
+    #if defined SAMP_API_DEVELOPER
+	    SAMP_API_PRINT("Version control started.");
+	#endif
+    return 1;
+}
+
+
+public PKontrolaVerze(index, response_code, data[])
+{
+	SAMP_API_PRINT("Version: checking..");
+    if(response_code == 200)
+    {
+        if(!strcmp(data, SAMP_API_V, true, 2))
+        {
+            SAMP_API_PRINT("Version Check: OK");
+            WebServerStart();
+            #if defined SAMP_API_DEVELOPER
+			    SAMP_API_PRINT("Key is ok.");
+			#endif
+        }
+        else
+        {
+            #if defined SAMP_API_DEVELOPER
+			    SAMP_API_PRINT("Bad script version.");
+			#endif
+			SAMP_API_PRINT("Version Check: Actual - %s", SAMP_API_V);
+			SAMP_API_PRINT("Version Check: Recommand - %s", data);
+			SAMP_API_PRINT("Please update SAMP_API script!");
+        }
+    }
+    else
+    {
+        #if defined SAMP_API_DEVELOPER
+			SAMP_API_PRINT("Version Check Error!");
+		#endif
+        SAMP_API_PRINT("Version Check: ERROR");
+        SAMP_API_PRINT("Shutdown");
+        SRC("exit");
+    }
     return 1;
 }
 
@@ -95,7 +137,7 @@ public PGetServerIP(index, response_code, data[])
     if(response_code == 200)
     {
         format(SERVER_IP, sizeof(SERVER_IP), "%s", data);
-        SAMP_API_PRINT("IP Check: %s [%d]",data, GetServerVarAsInt("port"));
+        SAMP_API_PRINT("IP Check: %s:%d",data, GetServerVarAsInt("port"));
         SAMP_API_PRINT("IP Check: OK");
         #if defined SAMP_API_DEVELOPER
 			SAMP_API_PRINT("IP is ok.");
@@ -160,11 +202,9 @@ public OnFilterScriptInit()
  	SAMP_API_PRINT("Konfiguracni soubor nalezen.");
 
 	//SAMP API TIMERS - Don't Touch this.
-	SetTimer("KontrolaKlice", 400, false);
-	SetTimer("Clear", 500, false);
+	SetTimer("KeyControl", 400, false);
+	SetTimer("GetScriptVersion", 600, false);
 	SetTimer("BeOnline", 1000, false);
-	SetTimer("Clear", 600000, true);
-	SetTimer("SendInfoToApi", 10000, true);
  
     #if defined SAMP_API_DEVELOPER
 	    SAMP_API_PRINT("SAMP API Script loaded");
@@ -246,12 +286,17 @@ stock PlayerName(playerid)
 
 stock SAMP_API_PRINT(const text[], va_args<>)
 {
-	new year, month, day, hours, minutes, seconds, string1[127], string2[256];
+	new year, month, day, hours, minutes, seconds, string1[127], string2[256], string3[256];
     getdate(year, month, day);
 	gettime(hours, minutes, seconds);
 	format(string1, sizeof(string1), "[%d-%d-%d %d:%d:%d][SAMP-API]:", day, month, year, hours, minutes, seconds);
 	va_format(string2, sizeof(string2), text, va_start<1>);
 	printf("%s%s", string1, string2);
+	#if defined SAMP_API_LOG
+	    format(string3, sizeof(string3), "%s%s", string1,string2);
+		if(!dini_Exists(SAMP_API_L)) dini_Create(SAMP_API_L);
+		dini_Write(SAMP_API_L, string3);
+	#endif
 }
 
 stock ClearID(id)
@@ -299,6 +344,7 @@ stock SAMP_API_CREATE_CONFIG()
 	    	SAMP_API_PRINT("Config created.");
 		#endif
     }
+    if(!dini_Exists(SAMP_API_L)) dini_Create(SAMP_API_L);
     #if defined SAMP_API_DEVELOPER
 	    SAMP_API_PRINT("Config is ok.");
 	#endif
