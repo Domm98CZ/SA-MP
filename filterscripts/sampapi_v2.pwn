@@ -22,7 +22,7 @@
 #define SAMP_API_V  "2.0"
 // SAMP-API CONFIG
 #define SAMP_API_LOG 		1
-#define SAMP_API_DEVELOPER 	1
+#define SAMP_API_DEVELOPER 	0
 // SERVER VARIABLES
 new SERVER_IP[127];
 new SERVER_KEY[127];
@@ -198,6 +198,8 @@ public OnFilterScriptInit()
     SAMP_API_PRINT("Loadnig..", "");
     SAMP_API_CREATE_CONFIG();
 
+    for(new i = 0;i < MAX_PLAYERS;i ++) ClearID(i);
+
 	strmid(SERVER_KEY, dini_Get(SAMP_API_C, "key"), false, strlen(dini_Get(SAMP_API_C, "key")), 127);
  	SAMP_API_PRINT("Konfiguracni soubor nalezen.");
 
@@ -209,6 +211,10 @@ public OnFilterScriptInit()
     #if defined SAMP_API_DEVELOPER
 	    SAMP_API_PRINT("SAMP API Script loaded");
 	#endif
+
+	new str[256];
+	format(str, 256, "{949494}[ {66FF66}SA-MP API {949494}] Script pro server {66FF66}%s:%d{949494} byl naèten!", SERVER_IP, GetServerVarAsInt("port"));
+	SendClientMessageToAll(-1, str);
     return 1;
 }
 
@@ -217,6 +223,11 @@ public OnFilterScriptExit()
 	SAMP_API_QUERY("ip=%s&port=%d&key=%s&action=server_status&user=SERVER&info=OFF", SERVER_IP, GetServerVarAsInt("port"), SERVER_KEY);
 	SAMP_API_PRINT("Unloaded");
 	WebServerStop();
+	for(new i = 0;i < MAX_PLAYERS;i ++) ClearID(i);
+	
+	new str[256];
+	format(str, 256, "{949494}[ {66FF66}SA-MP API {949494}] Script byl vypnut!");
+	SendClientMessageToAll(-1, str);
     return 1;
 }
 
